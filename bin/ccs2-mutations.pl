@@ -93,7 +93,7 @@ while( my $line = <BAM> )
     next if( $flag & 0x800 );
 
     ### skip reads with low mapping quality
-    next if( $mapq < 254 );
+    next if( $mapq < 60 );
 
     # ----- process CIGAR ------------------------------------------------------
 
