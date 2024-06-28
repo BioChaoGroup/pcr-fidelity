@@ -1,17 +1,21 @@
 #!/bin/bash
 
-#$ -S /bin/bash
-#$ -P longrun
-#$ -pe smp 8
+if [ "$#" -ne 8 ]; then
+    echo "Usage: $0 -a amplicon -s sampleId -c collectionPathUri -p threads"
+    exit 1
+fi
 
-cat $JOB_SCRIPT >> $SGE_STDOUT_PATH
+while getopts "a:s:c:p:" opt; do
+  case $opt in
+    a) amplicon="$OPTARG" ;;
+    s) sampleId="$OPTARG" ;;
+    c) collectionPathUri="$OPTARG" ;;
+    p) threads="$OPTARG" ;;
+    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
+  esac
+done
 
-echo ""
-echo "Started on $(date) on $(uname -n)"
-
-module load smrtlink
-module load samtools
-
+root=`pwd`
 reference="$root/references/$amplicon/sequence/$amplicon.fasta"
 
 ### create run directory
@@ -21,20 +25,19 @@ mkdir -p $rundir
 
 ### switch to working directory
 cd $rundir
+echo "Task 1 completed at $(date)"
 
 ### look up sequencing data
 echo ""
-find "$collectionPathUri" -name "*.bax.h5" | sort -u > input.fofn
-echo "Task 1 completed at $(date)"
+raw_bam=`find "$collectionPathUri" -name "*.bam"`
 
-### convert
-echo ""
-bax2bam --fofn=input.fofn -o movie
+cmd="ln -s $raw_bam movie.subreads.bam"
+echo $cmd && $cmd && \
 echo "Task 2 completed at $(date)"
 
-### map reads
 echo ""
-blasr movie.subreads.bam "$reference" -bam -out aligned_reads.bam -useQuality -nproc 8 -bestn 1
+cmd="pbmm2 align "$reference" "$raw_bam" aligned_reads.bam -j $threads -N 1"
+echo $cmd && $cmd && \
 echo "Task 3 completed at $(date)"
 
 ### extract mapping direction
@@ -57,7 +60,7 @@ do
     
     ### build ccs
     echo ""
-    ccs --reportFile=subreads_ccs.${strand}.csv --logFile=subreads_ccs.${strand}.log --numThreads=7 --minPasses=1 subreads.${strand}.bam subreads_ccs.${strand}.bam
+    ccs --reportFile=subreads_ccs.${strand}.csv --logFile=subreads_ccs.${strand}.log --num-threads=$threads --minPasses=1 subreads.${strand}.bam subreads_ccs.${strand}.bam
     echo "Task 7 ($strand) completed at $(date)"
 done
 

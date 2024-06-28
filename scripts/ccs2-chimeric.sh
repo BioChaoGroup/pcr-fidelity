@@ -1,18 +1,21 @@
 #!/bin/bash
 
-#$ -S /bin/bash
-#$ -P longrun
-#$ -pe smp 8
+if [ "$#" -ne 8 ]; then
+    echo "Usage: $0 -a amplicon -s sampleId -c collectionPathUri -p threads"
+    exit 1
+fi
 
-cat $JOB_SCRIPT >> $SGE_STDOUT_PATH
+while getopts "a:s:c:p:" opt; do
+  case $opt in
+    a) amplicon="$OPTARG" ;;
+    s) sampleId="$OPTARG" ;;
+    c) collectionPathUri="$OPTARG" ;;
+    p) threads="$OPTARG" ;;
+    \?) echo "Invalid option -$OPTARG" >&2; exit 1 ;;
+  esac
+done
 
-echo ""
-echo "Started on $(date) on $(uname -n)"
-
-module load bwa
-module load p7zip
-module load samtools
-
+root=`pwd`
 reference="$root/references/$amplicon/sequence/$amplicon.fasta"
 
 ### top run directory
